@@ -28,7 +28,7 @@ cors = CORS(app,resources={
 # CORS(app)
 app.config['SECRET_KEY'] = os.environ.get('SECRET_KEY')
 
-app.config['SQLALCHEMY_DATABASE_URI'] = os.environ.get('DATABASE_URL')
+app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:////db.sqlite3'
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 db = SQLAlchemy(app)
 
@@ -294,7 +294,6 @@ class MakeApp(Resource):
         else:
             return {'error':'Please provide a app name in the form data.','status_code':400},400
 
-
 api.add_resource(MakeApp,'/api/makeapp')
 
 
@@ -314,7 +313,7 @@ api.add_resource(MakeApp,'/api/makeapp')
 @app.route('/')
 def index():
     response = make_response("WELCOME TO TODOLIST REST API")
-    response.set_cookie('me',value='coolperson')
+    # response.set_cookie('me',value='coolperson')
     return response
 
 if __name__ == "__main__":
