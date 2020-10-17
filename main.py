@@ -311,6 +311,9 @@ api.add_resource(MakeApp,'/api/makeapp')
 
 #     return response
 
+@app.route('/')
+def index():
+    return "WELCOME TO TODOLIST REST API"
 
 if __name__ == "__main__":
     app.run()
