@@ -22,7 +22,7 @@ app = Flask(__name__)
 api = Api(app)
 flask_bcrypt = Bcrypt(app)
 cors = CORS(app,resources={
-    r'/api/*': {"origins": "*",'supports_credentials': True}
+    r'/*': {"origins": "*",'supports_credentials': True}
 })
 
 # CORS(app)
@@ -68,7 +68,7 @@ class App(db.Model):
 
 
 # Start of Resources of API
-
+# One of the main thing about flask restful is that it automatically puts the OPTIONS route.
 class Register(Resource):
     def post(self):
         if session.get('userid'):
@@ -216,7 +216,7 @@ class TodosOneItem(Resource):
         todo_obj = Todo.query.filter_by(id=todo_id).first()
         if todo_obj:
             if todo_obj.user_id == session.get('userid'):
-                return {n6av19je2jhj4jhk21wagbt33br
+                return {
                     'success':'Successfully got required todo.',
                     'id': todo_id,
                     'todo': todo_obj.todo,
@@ -313,7 +313,9 @@ api.add_resource(MakeApp,'/api/makeapp')
 
 @app.route('/')
 def index():
-    return "WELCOME TO TODOLIST REST API"
+    response = make_response("WELCOME TO TODOLIST REST API")
+    response.set_cookie('me',value='coolperson')
+    return response
 
 if __name__ == "__main__":
     app.run()
