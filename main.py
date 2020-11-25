@@ -1,8 +1,8 @@
-from flask import Flask,request,session,make_response
-from flask_restful import Resource,Api
+from flask import Flask, request, session, make_response
+from flask_restful import Resource, Api
 from flask_sqlalchemy import SQLAlchemy
 from flask_bcrypt import Bcrypt
-from flask_cors import CORS,cross_origin
+from flask_cors import CORS, cross_origin
 from sqlalchemy.exc import IntegrityError
 import json
 import requests
@@ -14,15 +14,16 @@ import os
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.DEBUG)
 filehandler = logging.FileHandler('main.log')
-formatter = logging.Formatter('%(asctime)s:%(levelname)s:%(lineno)d:%(name)s:%(message)s')
+formatter = logging.Formatter(
+    '%(asctime)s:%(levelname)s:%(lineno)d:%(name)s:%(message)s')
 filehandler.setFormatter(formatter)
 logger.addHandler(filehandler)
 
 app = Flask(__name__)
 api = Api(app)
 flask_bcrypt = Bcrypt(app)
-cors = CORS(app,resources={
-    r'/*': {"origins": "*",'supports_credentials': True}
+cors = CORS(app, resources={
+    r'/*': {"origins": "*", 'supports_credentials': True}
 })
 
 # CORS(app)
@@ -34,33 +35,37 @@ app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 db = SQLAlchemy(app)
 
 # Start of models:
+
+
 class Users(db.Model):
-    id = db.Column(db.Integer,primary_key=True)
-    username = db.Column(db.String(100),nullable=False)
-    email = db.Column(db.String(100),nullable=False)
-    password = db.Column(db.String(200),nullable=False)
-    app_id = db.Column(db.Integer,db.ForeignKey('app.id'),nullable=False)
-    
-    todos = db.relationship('Todo',backref='users',lazy=True)
+    id = db.Column(db.Integer, primary_key=True)
+    username = db.Column(db.String(100), nullable=False)
+    email = db.Column(db.String(100), nullable=False)
+    password = db.Column(db.String(200), nullable=False)
+    app_id = db.Column(db.Integer, db.ForeignKey('app.id'), nullable=False)
+
+    todos = db.relationship('Todo', backref='users', lazy=True)
     # backref makes like a column (pseudo-column) in todo model so todo.users can be done.
-    
+
     def __repr__(self):
         return f'User:{self.username}'
 
+
 class Todo(db.Model):
-    id = db.Column(db.Integer,primary_key=True)
-    todo = db.Column(db.String(500),nullable=False)
-    completed = db.Column(db.Boolean,default=False)
-    user_id = db.Column(db.Integer,db.ForeignKey('users.id'), nullable=False)
+    id = db.Column(db.Integer, primary_key=True)
+    todo = db.Column(db.String(500), nullable=False)
+    completed = db.Column(db.Boolean, default=False)
+    user_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=False)
 
     def __repr__(self):
         return f'Todo:{self.id}-{self.users}'
 
-class App(db.Model):
-    id = db.Column(db.Integer,primary_key=True)
-    name = db.Column(db.String(50),unique=True,nullable=False)
 
-    user = db.relationship('Users',backref='app',lazy=True)
+class App(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    name = db.Column(db.String(50), unique=True, nullable=False)
+
+    user = db.relationship('Users', backref='app', lazy=True)
 
     def __repr__(self):
         return f'AppName: {self.name}'
@@ -74,41 +79,48 @@ class App(db.Model):
 class Register(Resource):
     def post(self):
         if session.get('userid'):
-            return {'error':'Please first logout to register a new user.','status_code':400},400
+            return {'error': 'Please first logout to register a new user.', 'status_code': 400}, 400
         username = request.json.get('username')
         email = request.json.get('email')
-        password = str(request.json.get('password'))   # making the password to be string if it were sent as integer maybe.
+        # making the password to be string if it were sent as integer maybe.
+        password = str(request.json.get('password'))
         app_name = request.json.get('app_name')
 
         if username and email and password and app_name:
             app = App.query.filter_by(name=app_name).first()
             if app:
-                if Users.query.filter_by(username = username,app=app).first():
-                    return {'error':'Such username already exists.','status_code':400},400
-                elif Users.query.filter_by(email = email,app=app).first():
-                    return {'error':'Such email already exists.','status_code':400},400
+                if Users.query.filter_by(username=username, app=app).first():
+                    return {'error': 'Such username already exists.', 'status_code': 400}, 400
+                elif Users.query.filter_by(email=email, app=app).first():
+                    return {'error': 'Such email already exists.', 'status_code': 400}, 400
                 else:
-                    pw_hash =  flask_bcrypt.generate_password_hash(password)
-                    user = Users(username=username,email= email,password=pw_hash,app_id = app.id)
+                    # decoding done to convert pw_hash(bytes=>string) and then only saved in the database
+                    # because database column of password is of String
+                    pw_hash = flask_bcrypt.generate_password_hash(
+                        password).decode('utf-8')
+                    user = Users(username=username, email=email,
+                                 password=pw_hash, app_id=app.id)
                     db.session.add(user)
                     db.session.commit()
-                    return {'success':'You are successfully registered.','status_code':200},200
+                    return {'success': 'You are successfully registered.', 'status_code': 200}, 200
             else:
-                return {'error':'Your provided app name doesnot exist.','status_code':404},404
+                return {'error': 'Your provided app name doesnot exist.', 'status_code': 404}, 404
         else:
-            return {'error':"You didn't provide all the credentials",'status_code':400},400
+            return {'error': "You didn't provide all the credentials", 'status_code': 400}, 400
 
-api.add_resource(Register,'/api/register')
+
+api.add_resource(Register, '/api/register')
+
 
 class Login(Resource):
     def get(self):
-        
+
         logger.info(f"1. Userid in session is : {session.get('userid')}")
-        
+
         if session.get('userid'):
-            return {'success':'You are logged in.','status_code':200},200
+            return {'success': 'You are logged in.', 'status_code': 200}, 200
         else:
-            return {'error':'You are not logged in.','status_code':401},401
+            return {'error': 'You are not logged in.', 'status_code': 401}, 401
 
     # def options(self):
     #     response_obj = make_response({'hello':'there'})
@@ -120,39 +132,43 @@ class Login(Resource):
     def post(self):
         logger.info(f"2. Userid in session is : {session.get('userid')}")
         if session.get('userid'):
-            return {'error':'Please first logout to log back in again.','status_code':403},403
+            return {'error': 'Please first logout to log back in again.', 'status_code': 403}, 403
         username = request.json.get('username')
         password = str(request.json.get('password'))
         app_name = request.json.get('app_name')
-        
+
         if app_name:
             # app will be None if no such app with that app name.
             app = App.query.filter_by(name=app_name).first()
         else:
-            return {'error':'Please provide your app name.','status_code':400},400
+            return {'error': 'Please provide your app name.', 'status_code': 400}, 400
         if username and password and app:
             # following returns None if no user with that username
-            user = Users.query.filter_by(username=username,app=app).first()
-            if user and flask_bcrypt.check_password_hash(user.password,password):
+            user = Users.query.filter_by(username=username, app=app).first()
+            if user and flask_bcrypt.check_password_hash(user.password, password):
                 session['userid'] = user.id
                 logger.info(session['userid'])
-                return {'success':'Successfully logged in.','status_code':200},200
+                return {'success': 'Successfully logged in.', 'status_code': 200}, 200
             else:
-                return {'error':'Invalid username and/ or password.','status_code':400},400
+                return {'error': 'Invalid username and/ or password.', 'status_code': 400}, 400
         else:
-            return {'error':'You did not submit username and/ or password and/ or valid app name','status_code':400},400
+            return {'error': 'You did not submit username and/ or password and/ or valid app name', 'status_code': 400}, 400
 
-api.add_resource(Login,'/api/login')
+
+api.add_resource(Login, '/api/login')
+
 
 class Logout(Resource):
     def get(self):
         try:
             del session['userid']
-        except :
-            return {'error': 'Error! You are not logged in to be logged out.','status_code':400},400
-        return {'success': 'You are successfully logged out.','status_code':200},200
+        except:
+            return {'error': 'Error! You are not logged in to be logged out.', 'status_code': 400}, 400
+        return {'success': 'You are successfully logged out.', 'status_code': 200}, 200
 
-api.add_resource(Logout,'/api/logout')
+
+api.add_resource(Logout, '/api/logout')
+
 
 class Todos(Resource):
     def get(self):
@@ -160,7 +176,7 @@ class Todos(Resource):
         if user_id:  # that means the user is in session i.e. is logged in.
             user = Users.query.filter_by(id=user_id).first()
             all_todos = []
-            
+
             # I dont know why that this did not turn out well.
             # logger.error(User.query.join(Todo,(Todo.user_id == User.id)).filter(User.id == user_id).order_by(Todo.id.desc()))
             todos_of_this_user = list(user.todos)
@@ -168,28 +184,28 @@ class Todos(Resource):
             try:
                 for i in todos_of_this_user:
                     all_todos.append({
-                    'id': i.id,
-                    'todo': i.todo,
-                    'completed' : i.completed
-                })
-            except AttributeError:   # occurs when user does not have any todo i.e. user.todos is error.
+                        'id': i.id,
+                        'todo': i.todo,
+                        'completed': i.completed
+                    })
+            # occurs when user does not have any todo i.e. user.todos is error.
+            except AttributeError:
                 pass
             return {
-                'success':'Successfully got all todos.',
-                'userid':user_id,
-                'todos':all_todos,
-                'status_code':200
-                },200
+                'success': 'Successfully got all todos.',
+                'userid': user_id,
+                'todos': all_todos,
+                'status_code': 200
+            }, 200
         else:
-            return {'error':'Be logged in to use this route.','status_code':400},400
+            return {'error': 'Be logged in to use this route.', 'status_code': 400}, 400
 
     def post(self):
         # only todo is to be passed in the form data.
         todo = request.json.get('todo')
         if todo is None or todo == '':
-            return {'error':'Please provide a todo.','status_code':400},400
-        
-        
+            return {'error': 'Please provide a todo.', 'status_code': 400}, 400
+
         user_id = session.get('userid')
         if user_id:
             user = Users.query.filter_by(id=user_id).first()
@@ -197,58 +213,64 @@ class Todos(Resource):
             try:
                 for i in user.todos:
                     todos_list.append(i.todo)
-            except AttributeError:   # occurs when user does not have any todo i.e. user.todos is error.
+            # occurs when user does not have any todo i.e. user.todos is error.
+            except AttributeError:
                 pass
             for i in todos_list:
                 if todo == i:
-                    return {'error':'Such todo of yours already exists.','status_code':400},400
-            
+                    return {'error': 'Such todo of yours already exists.', 'status_code': 400}, 400
+
             # if code flow reaches here then the todo is to be saved.
-            saved_todo = Todo(todo=todo,completed=False,user_id=user_id)
+            saved_todo = Todo(todo=todo, completed=False, user_id=user_id)
             db.session.add(saved_todo)
             db.session.commit()
-            return {'success':'Successfully posted data.','status_code':200},200
+            return {'success': 'Successfully posted data.', 'status_code': 200}, 200
         else:
-            return {'error':'Be logged in to use this route.','status_code':400},400
-        
-api.add_resource(Todos,'/api/todos')
+            return {'error': 'Be logged in to use this route.', 'status_code': 400}, 400
+
+
+api.add_resource(Todos, '/api/todos')
+
 
 class TodosOneItem(Resource):
-    def get(self,todo_id):
+    def get(self, todo_id):
         todo_obj = Todo.query.filter_by(id=todo_id).first()
         if todo_obj:
             if todo_obj.user_id == session.get('userid'):
                 return {
-                    'success':'Successfully got required todo.',
+                    'success': 'Successfully got required todo.',
                     'id': todo_id,
                     'todo': todo_obj.todo,
-                    'completed' : todo_obj.completed,
-                    'status_code':200
-                },200
-                
+                    'completed': todo_obj.completed,
+                    'status_code': 200
+                }, 200
+
             else:
-                return {'error':'Be logged in or You cannot see todo of others.','status_code':403},403
+                return {'error': 'Be logged in or You cannot see todo of others.', 'status_code': 403}, 403
         else:
-            return {'error':'Such id of todo does not exist.','status_code':404},404
-    
-    def put(self,todo_id):
+            return {'error': 'Such id of todo does not exist.', 'status_code': 404}, 404
+
+    def put(self, todo_id):
         todo_obj = Todo.query.filter_by(id=todo_id).first()
         if todo_obj:
-            if todo_obj.user_id == session.get('userid'): # this means that the todo is owned by the user.
+            # this means that the todo is owned by the user.
+            if todo_obj.user_id == session.get('userid'):
                 if request.json.get("todo") and request.json.get("completed"):
-                    return {'error':'You cannot update and mark as complete at the same time.','status_code':400},400
+                    return {'error': 'You cannot update and mark as complete at the same time.', 'status_code': 400}, 400
                 elif request.json.get("todo"):
-                    
+
                     new_todo = request.json.get("todo")
                     todos_list = []
-                    user = Users.query.filter_by(id=session.get('userid')).first()
+                    user = Users.query.filter_by(
+                        id=session.get('userid')).first()
                     try:
                         for i in user.todos:
                             todos_list.append(i.todo)
-                    except AttributeError:   # occurs when user does not have any todo i.e. user.todos is error.
+                    # occurs when user does not have any todo i.e. user.todos is error.
+                    except AttributeError:
                         pass
                     if new_todo in todos_list:
-                        return {'error':'You are trying to update the todo value to be an already existing todo.','status_code':400},400
+                        return {'error': 'You are trying to update the todo value to be an already existing todo.', 'status_code': 400}, 400
                     else:
                         todo_obj.todo = new_todo
                         db.session.commit()
@@ -258,26 +280,27 @@ class TodosOneItem(Resource):
                     else:
                         todo_obj.completed = False
                     db.session.commit()
-                return {'success':'Successfully updated the todo data.','status_code':200},200
+                return {'success': 'Successfully updated the todo data.', 'status_code': 200}, 200
             else:
-                return {'error':'Be logged in or You cannot update todo of others.','status_code':400},400
+                return {'error': 'Be logged in or You cannot update todo of others.', 'status_code': 400}, 400
         else:
-            return {'error':'No such id of todo item exists.','status_code':404},404
-        
-        
-    def delete(self,todo_id):
+            return {'error': 'No such id of todo item exists.', 'status_code': 404}, 404
+
+    def delete(self, todo_id):
         todo_obj = Todo.query.filter_by(id=todo_id).first()
         if todo_obj:
-            if todo_obj.user_id == session.get('userid'): # this means that the todo is owned by the user.
+            # this means that the todo is owned by the user.
+            if todo_obj.user_id == session.get('userid'):
                 db.session.delete(todo_obj)
                 db.session.commit()
-                return {'success':'Successfully deleted the todo.','status_code':200},200
+                return {'success': 'Successfully deleted the todo.', 'status_code': 200}, 200
             else:
-                return {'error':'Be logged in or You cannot delete todo of others.','status_code':400},400
+                return {'error': 'Be logged in or You cannot delete todo of others.', 'status_code': 400}, 400
         else:
-            return {'error':'Such id of todo does not exist.','status_code':404},404
-            
-api.add_resource(TodosOneItem,'/api/todos/<int:todo_id>')
+            return {'error': 'Such id of todo does not exist.', 'status_code': 404}, 404
+
+
+api.add_resource(TodosOneItem, '/api/todos/<int:todo_id>')
 
 
 class MakeApp(Resource):
@@ -286,17 +309,18 @@ class MakeApp(Resource):
         if app_name:
             app = App.query.filter_by(name=app_name).first()
             if app:
-                return {'error':'Such app name is already taken. Try another one.','status_code':400},400
+                return {'error': 'Such app name is already taken. Try another one.', 'status_code': 400}, 400
             else:
                 app = App(name=app_name)
                 db.session.add(app)
                 db.session.commit()
-                return {'success':'Successfully created your app.',
-                'app_name':app_name,'status_code':200},200
+                return {'success': 'Successfully created your app.',
+                        'app_name': app_name, 'status_code': 200}, 200
         else:
-            return {'error':'Please provide a app name in the form data.','status_code':400},400
+            return {'error': 'Please provide a app name in the form data.', 'status_code': 400}, 400
 
-api.add_resource(MakeApp,'/api/makeapp')
+
+api.add_resource(MakeApp, '/api/makeapp')
 
 
 # End of Resources of API
@@ -317,6 +341,7 @@ def index():
     response = make_response("WELCOME TO TODOLIST REST API")
     # response.set_cookie('me',value='coolperson')
     return response
+
 
 if __name__ == "__main__":
     app.run()    # host='0.0.0.0',port=5000
