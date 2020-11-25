@@ -26,9 +26,10 @@ cors = CORS(app,resources={
 })
 
 # CORS(app)
+
 app.config['SECRET_KEY'] = os.environ.get('SECRET_KEY')
 
-app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:////db.sqlite3'
+app.config['SQLALCHEMY_DATABASE_URI'] = os.environ.get('DATABASE_URL')
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 db = SQLAlchemy(app)
 
@@ -68,6 +69,7 @@ class App(db.Model):
 
 
 # Start of Resources of API
+
 # One of the main thing about flask restful is that it automatically puts the OPTIONS route.
 class Register(Resource):
     def post(self):
@@ -317,4 +319,4 @@ def index():
     return response
 
 if __name__ == "__main__":
-    app.run()
+    app.run(host='0.0.0.0',port=5000)
