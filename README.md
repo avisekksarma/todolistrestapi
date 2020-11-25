@@ -1,1 +1,1 @@
-#### This is a simple todolist restful api made to run only on localhost but maybe I may host it somewhere in future.
+#### This is a simple todolist restful api hosted on https://flask-todolist-restapi.herokuapp.com/ . The documentation for api may come.
