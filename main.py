@@ -34,15 +34,15 @@ app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 db = SQLAlchemy(app)
 
 # Start of models:
-class User(db.Model):
+class Users(db.Model):
     id = db.Column(db.Integer,primary_key=True)
     username = db.Column(db.String(100),nullable=False)
     email = db.Column(db.String(100),nullable=False)
     password = db.Column(db.String(200),nullable=False)
     app_id = db.Column(db.Integer,db.ForeignKey('app.id'),nullable=False)
     
-    todos = db.relationship('Todo',backref='user',lazy=True)
-    # backref makes like a column (pseudo-column) in todo model so todo.user can be done.
+    todos = db.relationship('Todo',backref='users',lazy=True)
+    # backref makes like a column (pseudo-column) in todo model so todo.users can be done.
     
     def __repr__(self):
         return f'User:{self.username}'
@@ -51,16 +51,16 @@ class Todo(db.Model):
     id = db.Column(db.Integer,primary_key=True)
     todo = db.Column(db.String(500),nullable=False)
     completed = db.Column(db.Boolean,default=False)
-    user_id = db.Column(db.Integer,db.ForeignKey('user.id'), nullable=False)
+    user_id = db.Column(db.Integer,db.ForeignKey('users.id'), nullable=False)
 
     def __repr__(self):
-        return f'Todo:{self.id}-{self.user}'
+        return f'Todo:{self.id}-{self.users}'
 
 class App(db.Model):
     id = db.Column(db.Integer,primary_key=True)
     name = db.Column(db.String(50),unique=True,nullable=False)
 
-    users = db.relationship('User',backref='app',lazy=True)
+    user = db.relationship('Users',backref='app',lazy=True)
 
     def __repr__(self):
         return f'AppName: {self.name}'
@@ -83,13 +83,13 @@ class Register(Resource):
         if username and email and password and app_name:
             app = App.query.filter_by(name=app_name).first()
             if app:
-                if User.query.filter_by(username = username,app=app).first():
+                if Users.query.filter_by(username = username,app=app).first():
                     return {'error':'Such username already exists.','status_code':400},400
-                elif User.query.filter_by(email = email,app=app).first():
+                elif Users.query.filter_by(email = email,app=app).first():
                     return {'error':'Such email already exists.','status_code':400},400
                 else:
                     pw_hash =  flask_bcrypt.generate_password_hash(password)
-                    user = User(username=username,email= email,password=pw_hash,app_id = app.id)
+                    user = Users(username=username,email= email,password=pw_hash,app_id = app.id)
                     db.session.add(user)
                     db.session.commit()
                     return {'success':'You are successfully registered.','status_code':200},200
@@ -132,7 +132,7 @@ class Login(Resource):
             return {'error':'Please provide your app name.','status_code':400},400
         if username and password and app:
             # following returns None if no user with that username
-            user = User.query.filter_by(username=username,app=app).first()
+            user = Users.query.filter_by(username=username,app=app).first()
             if user and flask_bcrypt.check_password_hash(user.password,password):
                 session['userid'] = user.id
                 logger.info(session['userid'])
@@ -158,7 +158,7 @@ class Todos(Resource):
     def get(self):
         user_id = session.get('userid')
         if user_id:  # that means the user is in session i.e. is logged in.
-            user = User.query.filter_by(id=user_id).first()
+            user = Users.query.filter_by(id=user_id).first()
             all_todos = []
             
             # I dont know why that this did not turn out well.
@@ -192,7 +192,7 @@ class Todos(Resource):
         
         user_id = session.get('userid')
         if user_id:
-            user = User.query.filter_by(id=user_id).first()
+            user = Users.query.filter_by(id=user_id).first()
             todos_list = []
             try:
                 for i in user.todos:
@@ -241,7 +241,7 @@ class TodosOneItem(Resource):
                     
                     new_todo = request.json.get("todo")
                     todos_list = []
-                    user = User.query.filter_by(id=session.get('userid')).first()
+                    user = Users.query.filter_by(id=session.get('userid')).first()
                     try:
                         for i in user.todos:
                             todos_list.append(i.todo)
